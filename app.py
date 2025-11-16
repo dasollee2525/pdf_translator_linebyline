@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from lib.pdf_loader import extract_paragraphs_from_pdf
 from lib.translator import translate_paragraphs
-from lib.storage import save_document, get_document, get_translations, save_translation, save_sentence_translation, get_sentence_translations, is_translation_completed, update_document_name, delete_document, save_document_to_paper_folder, get_all_documents, load_document_from_paper_folder, find_saved_document_in_paper_folder
+from lib.storage import save_document, get_document, get_translations, save_translation, save_sentence_translation, get_sentence_translations, is_translation_completed, update_document_name, delete_document, get_all_documents
 from lib.pdf_renderer import render_pdf_page
 
 import html
@@ -154,38 +154,6 @@ def main():
             st.session_state.hovered_paragraph_id = None
             st.rerun()
         
-        # paper 폴더에서 문서 불러오기
-        paper_dir = Path("paper")
-        if paper_dir.exists():
-            json_files = list(paper_dir.glob("*.json"))
-            if json_files:
-                st.divider()
-                st.subheader("📁 paper 폴더")
-                with st.expander("저장된 문서 불러오기", expanded=False):
-                    for json_file in sorted(json_files, key=lambda x: x.stat().st_mtime, reverse=True):
-                        try:
-                            with open(json_file, 'r', encoding='utf-8') as f:
-                                doc_data = json.load(f)
-                            doc_name = doc_data.get('document_name', json_file.stem)
-                            pdf_file = json_file.parent / json_file.name.replace('.json', '.pdf')
-                            
-                            if st.button(f"📖 {doc_name}", key=f"load_{json_file.name}", width='stretch'):
-                                # 문서 불러오기
-                                loaded_doc = load_document_from_paper_folder(json_file)
-                                if loaded_doc:
-                                    # PDF 파일 경로 업데이트
-                                    if pdf_file.exists():
-                                        loaded_doc['file_path'] = str(pdf_file)
-                                    
-                                    st.session_state.document_id = loaded_doc['document_id']
-                                    st.session_state.current_page = 1
-                                    st.success(f"✅ {doc_name} 불러옴! (번역 {len(doc_data.get('translations', {}))}개)")
-                                    st.rerun()
-                                else:
-                                    st.error("문서 불러오기 실패")
-                        except Exception as e:
-                            st.caption(f"⚠️ {json_file.name} 로드 실패")
-        
         st.divider()
         
         # 문서 리스트
@@ -245,19 +213,26 @@ def main():
                     if st.session_state.get(menu_key, False):
                         with st.expander(f"📝 {doc_name} 관리", expanded=True):
                             # 이름 편집
+                            edit_input_key = f"edit_name_{doc_id}"
+                            # 텍스트 입력 (Streamlit이 자동으로 session_state에 저장)
                             new_name = st.text_input(
                                 "문서 이름",
                                 value=doc_name,
-                                key=f"edit_name_{doc_id}"
+                                key=edit_input_key
                             )
+                            
                             col_edit1, col_edit2 = st.columns(2)
                             with col_edit1:
                                 if st.button("💾 저장", key=f"save_name_{doc_id}"):
-                                    if new_name.strip():
-                                        update_document_name(doc_id, new_name.strip())
-                                        st.session_state[menu_key] = False
-                                        st.success("문서 이름이 변경되었습니다.")
-                                        st.rerun()
+                                    # session_state에서 직접 읽기
+                                    current_name = st.session_state.get(edit_input_key, doc_name)
+                                    if current_name and current_name.strip():
+                                        if update_document_name(doc_id, current_name.strip()):
+                                            st.session_state[menu_key] = False
+                                            st.success("문서 이름이 변경되었습니다.")
+                                            st.rerun()
+                                        else:
+                                            st.error("문서 이름 변경에 실패했습니다.")
                                     else:
                                         st.error("문서 이름을 입력하세요.")
                             
@@ -271,13 +246,6 @@ def main():
                                         st.rerun()
                                     else:
                                         st.error("문서 삭제에 실패했습니다.")
-                            
-                            # paper 폴더에 저장
-                            if st.button("💾 paper 폴더에 저장", key=f"save_paper_{doc_id}"):
-                                if save_document_to_paper_folder(doc_id):
-                                    st.success("paper 폴더에 저장되었습니다!")
-                                else:
-                                    st.error("저장에 실패했습니다.")
                     
                     # 문서 정보 (작게 표시)
                     st.caption(f"📅 {date_str} | 📄 {total_pages}페이지")
