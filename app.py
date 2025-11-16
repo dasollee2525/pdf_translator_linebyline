@@ -535,12 +535,12 @@ def show_translated_pane(document: Dict):
                     
                     # 스트리밍 응답으로 번역 요청
                     # 목적: 실시간으로 번역 결과를 받아 화면에 표시
-                            stream = client.chat.completions.create(
-                                model="gpt-4o",  # 최고 품질 번역을 위한 고성능 모델 사용
-                                messages=[
-                                    {
-                                        "role": "system",
-                                        "content": """You are an expert professional translator with deep knowledge across multiple domains including academic research, business, technology, medicine, law, finance, and literature. Your translations are renowned for their accuracy, naturalness, and cultural sensitivity.
+                    stream = client.chat.completions.create(
+                        model="gpt-4o",  # 최고 품질 번역을 위한 고성능 모델 사용
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": """You are an expert professional translator with deep knowledge across multiple domains including academic research, business, technology, medicine, law, finance, and literature. Your translations are renowned for their accuracy, naturalness, and cultural sensitivity.
 
 CORE TRANSLATION PRINCIPLES:
 
@@ -588,7 +588,7 @@ EXAMPLES:
 - "The merger was subject to regulatory approval" → "인수합병은 규제 당국의 승인을 받아야 했다."
 
 Remember: Your goal is to produce a translation that is accurate, natural, culturally appropriate, and maintains the original's meaning and tone while being perfectly readable in Korean."""
-                                    },
+                            },
                             {
                                 "role": "user",
                                 "content": orig_text
