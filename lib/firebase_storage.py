@@ -19,6 +19,14 @@ def _get_firebase_app():
     global _firebase_app
     
     if _firebase_app is None:
+        # 이미 초기화된 Firebase 앱이 있는지 확인 (firestore.py와 공유)
+        try:
+            _firebase_app = firebase_admin.get_app()
+            return _firebase_app
+        except ValueError:
+            # Firebase 앱이 없으면 초기화
+            pass
+        
         # 환경 변수에서 Firebase 인증 정보 가져오기
         # 방법 1: JSON 파일 경로
         cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
