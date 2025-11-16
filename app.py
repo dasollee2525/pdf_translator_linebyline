@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from lib.pdf_loader import extract_paragraphs_from_pdf
 from lib.translator import translate_paragraphs
-from lib.storage import save_document, get_document, get_translations, save_translation, save_sentence_translation, get_sentence_translations, is_translation_completed, update_document_name, delete_document, get_all_documents
+from lib.storage import save_document, get_document, get_translations, save_translation, save_sentence_translation, get_sentence_translations, is_translation_completed, update_document_name, delete_document, get_all_documents, load_document_from_paper_folder, save_document_to_paper_folder
 from lib.pdf_renderer import render_pdf_page
 
 import html
@@ -143,6 +143,43 @@ def main():
     if os.getenv("APP_PASSWORD"):
         if not check_password():
             return
+    
+    # ============================================================
+    # 앱 시작 시 paper 폴더에서 저장된 문서 자동 마이그레이션
+    # (기존 paper 폴더 데이터를 Firebase Storage + Firestore로 마이그레이션)
+    # ============================================================
+    # 한 번만 실행되도록 세션 상태 플래그 사용
+    if 'papers_loaded' not in st.session_state:
+        paper_dir = Path("paper")
+        if paper_dir.exists():
+            json_files = list(paper_dir.glob("*.json"))
+            loaded_count = 0
+            for json_file in json_files:
+                try:
+                    # 문서 불러오기 (이미 불러온 문서는 건너뛰기)
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        doc_data = json.load(f)
+                    doc_id = doc_data.get('document_id')
+                    
+                    # 이미 로드된 문서인지 확인 (Firestore에서)
+                    existing_docs = get_all_documents()
+                    existing_doc_ids = {d['document_id'] for d in existing_docs}
+                    
+                    if doc_id and doc_id not in existing_doc_ids:
+                        # paper 폴더에서 Firebase Storage + Firestore로 마이그레이션
+                        loaded_doc = load_document_from_paper_folder(json_file)
+                        if loaded_doc:
+                            loaded_count += 1
+                except Exception as e:
+                    # 로드 실패한 파일은 무시
+                    pass
+            
+            if loaded_count > 0:
+                # 자동 로드 완료 메시지는 표시하지 않음 (사용자 경험)
+                pass
+        
+        st.session_state['papers_loaded'] = True
+    
     # 사이드바
     with st.sidebar:
         st.header("📚 문서 관리")
@@ -246,6 +283,15 @@ def main():
                                         st.rerun()
                                     else:
                                         st.error("문서 삭제에 실패했습니다.")
+                            
+                            # paper 폴더에 저장 (PDF + 번역 내용)
+                            st.divider()
+                            save_button_label = f"{doc_name} 저장"
+                            if st.button(save_button_label, key=f"save_paper_{doc_id}", width='stretch'):
+                                if save_document_to_paper_folder(doc_id):
+                                    st.success(f"✅ paper 폴더에 저장되었습니다!\n📁 위치: `paper/` 폴더")
+                                else:
+                                    st.error("저장에 실패했습니다.")
                     
                     # 문서 정보 (작게 표시)
                     st.caption(f"📅 {date_str} | 📄 {total_pages}페이지")
@@ -309,15 +355,22 @@ def show_upload_screen():
                 document_id = str(uuid.uuid4())
                 default_name = uploaded_file.name.replace('.pdf', '').replace('.PDF', '')
                 
+                # Firebase Storage에 업로드하고 Postgres에 저장
+                status_text.text("Firebase Storage에 업로드 중...")
                 save_document(
                     document_id=document_id,
                     paragraphs=paragraphs,
                     total_pages=total_pages,
-                    file_path=str(temp_path),
+                    file_path=str(temp_path),  # 로컬 임시 파일 (Firebase Storage에 업로드됨)
                     document_name=default_name
                 )
+                
+                # 임시 파일 삭제 (Firebase Storage에 업로드되었으므로)
+                try:
+                    temp_path.unlink()
+                except:
+                    pass
 
-                # 임시 파일은 유지 (나중에 삭제 가능)
                 st.session_state.document_id = document_id
                 st.session_state.current_page = 1
                 st.rerun()
@@ -355,7 +408,15 @@ def show_original_pane(document: Dict):
     """원문 패널"""
     total_pages = document['total_pages']
     current_page = st.session_state.current_page
-    file_path = document['file_path']
+    document_id = document['document_id']
+    
+    # Firebase Storage에서 PDF 다운로드 (로컬 임시 파일)
+    from lib.storage import get_local_pdf_path
+    local_pdf_path = get_local_pdf_path(document_id)
+    
+    if not local_pdf_path or not Path(local_pdf_path).exists():
+        st.error("PDF 파일을 불러올 수 없습니다.")
+        return
 
     # 페이지 네비게이션
     nav_col1, nav_col2, nav_col3 = st.columns([1, 2, 1])
@@ -373,7 +434,7 @@ def show_original_pane(document: Dict):
             st.rerun()
 
     # PDF 페이지 이미지 표시
-    pdf_image = render_pdf_page(file_path, current_page, zoom=1.5)
+    pdf_image = render_pdf_page(local_pdf_path, current_page, zoom=1.5)
     if pdf_image:
         st.image(pdf_image, caption=f"Page {current_page}")
     else:

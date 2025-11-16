@@ -24,6 +24,15 @@ build/
 .env
 .env.local
 
+# Firebase
+# 서비스 계정 키 파일 (절대 Git에 커밋하지 마세요!)
+firebase-credentials.json
+firebase-service-account.json
+serviceAccountKey.json
+*firebase*.json
+*-firebase-adminsdk-*.json
+firebase/
+
 # Temporary files
 temp/
 *.pdf
