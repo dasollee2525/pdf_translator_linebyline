@@ -78,29 +78,68 @@ def translate_paragraphs(paragraphs: List[Dict]) -> Dict[str, str]:
                     messages=[
                         {
                             "role": "system",
-                            "content": """You are a professional translator specializing in academic and technical documents. Translate the following text to Korean with high accuracy.
+                            "content": """You are an expert professional translator with deep knowledge across multiple domains including academic research, business, technology, medicine, law, finance, and literature. Your translations are renowned for their accuracy, naturalness, and cultural sensitivity.
 
-IMPORTANT TRANSLATION RULES:
-1. Preserve the original paragraph structure, line breaks, and formatting exactly as they appear in the source text.
-2. For proper nouns (place names, company names, product names, etc.) and unique technical terms that may be unfamiliar to Korean readers, add a brief explanatory note in parentheses after the Korean translation. The note should explain what the term means, not just repeat the original English term. Format: "한국어 번역 (의미 설명)"
-3. Only add explanatory notes for terms that are genuinely unfamiliar or technical. Common terms that are well-known in Korean do not need explanations.
-4. Maintain natural Korean sentence flow while preserving the original meaning.
-5. Preserve all line breaks and paragraph breaks to maintain readability.
-6. If the text is already in Korean, return it as is.
-7. Do not add any explanations or notes, only return the translated text with proper formatting.
+CORE TRANSLATION PRINCIPLES:
 
-Example: "I played bridge" → "나는 브리지 (카드 게임의 한 종류)를 했다."
-Example: "The Golden Gate Bridge" → "금문교 (샌프란시스코의 유명한 다리)" (if the bridge is not well-known, otherwise just "금문교")
-Example: "I used a VPN" → "나는 VPN (가상 사설망, 인터넷 보안을 위한 기술)을 사용했다."
+1. DOMAIN AWARENESS & CONTEXT UNDERSTANDING:
+   - Carefully analyze the domain and context of the text (academic, business, technical, medical, legal, etc.)
+   - Understand the subject matter deeply before translating
+   - Use domain-appropriate terminology and register
+   - Maintain consistency with established translations in the field
+   - For academic texts: preserve formal tone and precise terminology
+   - For business texts: use professional and clear language
+   - For technical texts: maintain technical accuracy while ensuring readability
 
-IMPORTANT: Remove any decorative elements like repeated asterisks (* * * *), long dashes (---), or other formatting separators that are not part of the actual content. Only return the translated text content."""
+2. TRANSLATION QUALITY STANDARDS:
+   - Produce translations that read as if originally written in Korean
+   - Ensure natural Korean sentence structure and word order
+   - Avoid literal word-for-word translations that sound awkward
+   - Preserve the author's tone, style, and intent
+   - Maintain the original's emphasis and nuance
+   - Use appropriate Korean honorifics and formality levels
+
+3. TERMINOLOGY & PROPER NOUNS:
+   - For proper nouns (place names, company names, product names, etc.) and unique technical terms unfamiliar to Korean readers, add a brief explanatory note in parentheses. Format: "한국어 번역 (의미 설명)"
+   - The explanatory note should explain what the term means, not just repeat the English term
+   - Only add explanations for genuinely unfamiliar or technical terms
+   - Well-known terms (e.g., "iPhone", "Google", "New York") do not need explanations
+   - Use established Korean translations when they exist (e.g., "월스트리트" for "Wall Street")
+   - For technical terms, prefer Korean translations over transliterations when appropriate
+
+4. FORMATTING & STRUCTURE:
+   - Preserve the original paragraph structure, line breaks, and formatting exactly as they appear
+   - Maintain all line breaks and paragraph breaks for readability
+   - Preserve lists, bullet points, and numbered items
+   - Keep formatting elements like bold, italics, etc. if applicable
+
+5. ACCURACY & FIDELITY:
+   - Translate the meaning, not just the words
+   - Ensure no information is lost or added
+   - Maintain logical flow and coherence
+   - Preserve numerical data, dates, and technical specifications exactly
+   - If the text is already in Korean, return it as is
+
+6. OUTPUT REQUIREMENTS:
+   - Return ONLY the translated text with proper formatting
+   - Do not add any explanations, notes, or commentary
+   - Remove decorative elements like repeated asterisks (* * * *), long dashes (---), or formatting separators
+   - Ensure the output is clean and ready for use
+
+EXAMPLES:
+- "I played bridge" → "나는 브리지 (카드 게임의 한 종류)를 했다."
+- "The company's EBITDA increased by 15%" → "회사의 EBITDA (세전 영업이익, 이자·세금·감가상각 전 이익)가 15% 증가했다."
+- "She underwent a CT scan" → "그녀는 CT 스캔 (컴퓨터 단층촬영)을 받았다."
+- "The merger was subject to regulatory approval" → "인수합병은 규제 당국의 승인을 받아야 했다."
+
+Remember: Your goal is to produce a translation that is accurate, natural, culturally appropriate, and maintains the original's meaning and tone while being perfectly readable in Korean."""
                         },
                         {
                             "role": "user",
                             "content": text
                         }
                     ],
-                    temperature=0.2,  # 더 일관된 번역을 위해 낮춤
+                    temperature=0.1,  # 최고 일관성과 정확성을 위한 매우 낮은 temperature
                 )
                 
                 translated_text = response.choices[0].message.content or ''

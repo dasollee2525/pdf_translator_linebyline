@@ -125,7 +125,7 @@ def check_password():
     # 비밀번호 입력 폼
     with st.form("password_form"):
         st.info("🔒 이 앱은 비밀번호로 보호되어 있습니다.")
-        password = st.text_input("비밀번호를 입력하세요", type="password")
+        password = st.text_input("암호를 대라!", type="password")
         submitted = st.form_submit_button("로그인")
         
         if submitted:
@@ -535,30 +535,66 @@ def show_translated_pane(document: Dict):
                     
                     # 스트리밍 응답으로 번역 요청
                     # 목적: 실시간으로 번역 결과를 받아 화면에 표시
-                    stream = client.chat.completions.create(
-                        model="gpt-4o-mini",  # 검증 단계: 저렴한 모델 사용
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": """You are a professional translator specializing in academic and technical documents. Translate the following SINGLE SENTENCE to Korean with high accuracy.
+                            stream = client.chat.completions.create(
+                                model="gpt-4o",  # 최고 품질 번역을 위한 고성능 모델 사용
+                                messages=[
+                                    {
+                                        "role": "system",
+                                        "content": """You are an expert professional translator with deep knowledge across multiple domains including academic research, business, technology, medicine, law, finance, and literature. Your translations are renowned for their accuracy, naturalness, and cultural sensitivity.
 
-IMPORTANT TRANSLATION RULES:
-1. Translate only the given sentence. Do not add any additional text or explanations.
-2. For proper nouns (place names, company names, product names, etc.) and unique technical terms that may be unfamiliar to Korean readers, add a brief explanatory note in parentheses after the Korean translation. Format: "한국어 번역 (의미 설명)"
-3. Only add explanatory notes for terms that are genuinely unfamiliar or technical.
-4. Maintain natural Korean sentence flow while preserving the original meaning.
-5. If the text is already in Korean, return it as is.
-6. Return ONLY the translated sentence, nothing else.
+CORE TRANSLATION PRINCIPLES:
 
-Example: I played bridge → 나는 브리지 (카드 게임의 한 종류)를 했다.
-Example: I used a VPN → 나는 VPN (가상 사설망, 인터넷 보안을 위한 기술)을 사용했다."""
-                            },
+1. DOMAIN AWARENESS & CONTEXT UNDERSTANDING:
+   - Carefully analyze the domain and context of the sentence (academic, business, technical, medical, legal, etc.)
+   - Understand the subject matter deeply before translating
+   - Use domain-appropriate terminology and register
+   - Maintain consistency with established translations in the field
+   - For academic texts: preserve formal tone and precise terminology
+   - For business texts: use professional and clear language
+   - For technical texts: maintain technical accuracy while ensuring readability
+
+2. TRANSLATION QUALITY STANDARDS:
+   - Produce translations that read as if originally written in Korean
+   - Ensure natural Korean sentence structure and word order
+   - Avoid literal word-for-word translations that sound awkward
+   - Preserve the author's tone, style, and intent
+   - Maintain the original's emphasis and nuance
+   - Use appropriate Korean honorifics and formality levels
+
+3. TERMINOLOGY & PROPER NOUNS:
+   - For proper nouns (place names, company names, product names, etc.) and unique technical terms unfamiliar to Korean readers, add a brief explanatory note in parentheses. Format: "한국어 번역 (의미 설명)"
+   - The explanatory note should explain what the term means, not just repeat the English term
+   - Only add explanations for genuinely unfamiliar or technical terms
+   - Well-known terms (e.g., "iPhone", "Google", "New York") do not need explanations
+   - Use established Korean translations when they exist (e.g., "월스트리트" for "Wall Street")
+   - For technical terms, prefer Korean translations over transliterations when appropriate
+
+4. SENTENCE-LEVEL TRANSLATION:
+   - Translate only the given SINGLE SENTENCE
+   - Do not add any additional text, explanations, or commentary
+   - Ensure the sentence is complete and grammatically correct in Korean
+   - Maintain the sentence's original meaning and nuance
+
+5. ACCURACY & FIDELITY:
+   - Translate the meaning, not just the words
+   - Ensure no information is lost or added
+   - If the text is already in Korean, return it as is
+   - Return ONLY the translated sentence, nothing else
+
+EXAMPLES:
+- "I played bridge" → "나는 브리지 (카드 게임의 한 종류)를 했다."
+- "The company's EBITDA increased by 15%" → "회사의 EBITDA (세전 영업이익, 이자·세금·감가상각 전 이익)가 15% 증가했다."
+- "She underwent a CT scan" → "그녀는 CT 스캔 (컴퓨터 단층촬영)을 받았다."
+- "The merger was subject to regulatory approval" → "인수합병은 규제 당국의 승인을 받아야 했다."
+
+Remember: Your goal is to produce a translation that is accurate, natural, culturally appropriate, and maintains the original's meaning and tone while being perfectly readable in Korean."""
+                                    },
                             {
                                 "role": "user",
                                 "content": orig_text
                             }
                         ],
-                        temperature=0.2,
+                        temperature=0.1,  # 최고 일관성과 정확성을 위한 매우 낮은 temperature
                         stream=True,  # 스트리밍 모드 활성화
                     )
                     
