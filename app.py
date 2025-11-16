@@ -10,13 +10,14 @@ import re
 import threading
 import time
 import html
+import json
 from pathlib import Path
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
 
 from lib.pdf_loader import extract_paragraphs_from_pdf
 from lib.translator import translate_paragraphs
-from lib.storage import save_document, get_document, get_translations, save_translation, save_sentence_translation, get_sentence_translations, is_translation_completed
+from lib.storage import save_document, get_document, get_translations, save_translation, save_sentence_translation, get_sentence_translations, is_translation_completed, update_document_name, delete_document, save_document_to_paper_folder, get_all_documents, load_document_from_paper_folder, find_saved_document_in_paper_folder
 from lib.pdf_renderer import render_pdf_page
 
 import html
@@ -153,18 +154,50 @@ def main():
             st.session_state.hovered_paragraph_id = None
             st.rerun()
         
+        # paper 폴더에서 문서 불러오기
+        paper_dir = Path("paper")
+        if paper_dir.exists():
+            json_files = list(paper_dir.glob("*.json"))
+            if json_files:
+                st.divider()
+                st.subheader("📁 paper 폴더")
+                with st.expander("저장된 문서 불러오기", expanded=False):
+                    for json_file in sorted(json_files, key=lambda x: x.stat().st_mtime, reverse=True):
+                        try:
+                            with open(json_file, 'r', encoding='utf-8') as f:
+                                doc_data = json.load(f)
+                            doc_name = doc_data.get('document_name', json_file.stem)
+                            pdf_file = json_file.parent / json_file.name.replace('.json', '.pdf')
+                            
+                            if st.button(f"📖 {doc_name}", key=f"load_{json_file.name}", width='stretch'):
+                                # 문서 불러오기
+                                loaded_doc = load_document_from_paper_folder(json_file)
+                                if loaded_doc:
+                                    # PDF 파일 경로 업데이트
+                                    if pdf_file.exists():
+                                        loaded_doc['file_path'] = str(pdf_file)
+                                    
+                                    st.session_state.document_id = loaded_doc['document_id']
+                                    st.session_state.current_page = 1
+                                    st.success(f"✅ {doc_name} 불러옴! (번역 {len(doc_data.get('translations', {}))}개)")
+                                    st.rerun()
+                                else:
+                                    st.error("문서 불러오기 실패")
+                        except Exception as e:
+                            st.caption(f"⚠️ {json_file.name} 로드 실패")
+        
         st.divider()
         
         # 문서 리스트
         st.subheader("📋 문서 목록")
-        from lib.storage import documents
         
-        if documents:
-            document_list = list(documents.values())
+        document_list = get_all_documents()
+        if document_list:
             document_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
             
             for doc in document_list:
                 doc_id = doc['document_id']
+                doc_name = doc.get('document_name', f'문서 {doc_id[:8]}')
                 created_at = doc.get('created_at', '')
                 total_pages = doc.get('total_pages', 0)
                 
@@ -181,18 +214,73 @@ def main():
                 
                 # 현재 선택된 문서인지 확인
                 is_selected = st.session_state.document_id == doc_id
-                button_label = f"📖 {date_str} ({total_pages}페이지)"
                 
-                if st.button(
-                    button_label,
-                    key=f"doc_{doc_id}",
-                    width='stretch',
-                    type="primary" if is_selected else "secondary"
-                ):
-                    st.session_state.document_id = doc_id
-                    st.session_state.current_page = 1
-                    st.session_state.hovered_paragraph_id = None
-                    st.rerun()
+                # 문서 컨테이너
+                with st.container():
+                    col1, col2 = st.columns([3, 1])
+                    
+                    with col1:
+                        button_label = f"📖 {doc_name}"
+                        if st.button(
+                            button_label,
+                            key=f"doc_{doc_id}",
+                            width='stretch',
+                            type="primary" if is_selected else "secondary"
+                        ):
+                            st.session_state.document_id = doc_id
+                            st.session_state.current_page = 1
+                            st.session_state.hovered_paragraph_id = None
+                            st.rerun()
+                    
+                    with col2:
+                        # 편집/삭제 메뉴
+                        menu_key = f"menu_{doc_id}"
+                        if menu_key not in st.session_state:
+                            st.session_state[menu_key] = False
+                        
+                        if st.button("⋮", key=f"menu_btn_{doc_id}", help="문서 관리"):
+                            st.session_state[menu_key] = not st.session_state[menu_key]
+                    
+                    # 편집/삭제 메뉴 표시
+                    if st.session_state.get(menu_key, False):
+                        with st.expander(f"📝 {doc_name} 관리", expanded=True):
+                            # 이름 편집
+                            new_name = st.text_input(
+                                "문서 이름",
+                                value=doc_name,
+                                key=f"edit_name_{doc_id}"
+                            )
+                            col_edit1, col_edit2 = st.columns(2)
+                            with col_edit1:
+                                if st.button("💾 저장", key=f"save_name_{doc_id}"):
+                                    if new_name.strip():
+                                        update_document_name(doc_id, new_name.strip())
+                                        st.session_state[menu_key] = False
+                                        st.success("문서 이름이 변경되었습니다.")
+                                        st.rerun()
+                                    else:
+                                        st.error("문서 이름을 입력하세요.")
+                            
+                            with col_edit2:
+                                if st.button("❌ 삭제", key=f"delete_{doc_id}", type="secondary"):
+                                    if delete_document(doc_id):
+                                        if st.session_state.document_id == doc_id:
+                                            st.session_state.document_id = None
+                                        st.session_state[menu_key] = False
+                                        st.success("문서가 삭제되었습니다.")
+                                        st.rerun()
+                                    else:
+                                        st.error("문서 삭제에 실패했습니다.")
+                            
+                            # paper 폴더에 저장
+                            if st.button("💾 paper 폴더에 저장", key=f"save_paper_{doc_id}"):
+                                if save_document_to_paper_folder(doc_id):
+                                    st.success("paper 폴더에 저장되었습니다!")
+                                else:
+                                    st.error("저장에 실패했습니다.")
+                    
+                    # 문서 정보 (작게 표시)
+                    st.caption(f"📅 {date_str} | 📄 {total_pages}페이지")
         else:
             st.info("업로드된 문서가 없습니다.")
     
@@ -249,13 +337,16 @@ def show_upload_screen():
                 status_text.text("PDF 파일 로딩 중...")
                 paragraphs, total_pages = extract_paragraphs_from_pdf(str(temp_path))
                 
-                # 문서 저장
+                # 문서 저장 (파일명을 기본 이름으로 사용)
                 document_id = str(uuid.uuid4())
+                default_name = uploaded_file.name.replace('.pdf', '').replace('.PDF', '')
+                
                 save_document(
                     document_id=document_id,
                     paragraphs=paragraphs,
                     total_pages=total_pages,
-                    file_path=str(temp_path)
+                    file_path=str(temp_path),
+                    document_name=default_name
                 )
 
                 # 임시 파일은 유지 (나중에 삭제 가능)

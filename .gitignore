@@ -29,6 +29,10 @@ temp/
 *.pdf
 !example.pdf
 
+# Paper folder (저장된 문서들)
+# paper/ 폴더는 Git에 포함시키려면 이 줄을 주석 처리하세요
+# paper/
+
 # IDE
 .vscode/
 .idea/
